@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Green Energy Mini Shop - 3D</title>
+  <style>
+    :root {
+      --bg-1: #06110d;
+      --bg-2: #0b1f18;
+      --glass: rgba(255, 255, 255, 0.12);
+      --glass-border: rgba(255, 255, 255, 0.25);
+      --text: #e9fff4;
+      --muted: #b6d7c8;
+      --accent: #22c55e;
+      --accent-dark: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 20%, #123625 0%, var(--bg-2) 45%, var(--bg-1) 100%);
+      overflow: hidden;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    .topbar {
+      position: fixed;
+      top: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 10;
+      padding: 0.75rem 1rem;
+      border-radius: 1rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      width: min(92vw, 680px);
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(1.1rem, 2.2vw, 1.6rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .topbar p {
+      margin: 0.35rem 0 0;
+      color: var(--muted);
+      font-size: clamp(0.8rem, 1.6vw, 0.95rem);
+    }
+
+    .info-box {
+      position: fixed;
+      right: 1rem;
+      bottom: 1rem;
+      width: min(92vw, 340px);
+      border-radius: 1rem;
+      padding: 0.85rem;
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.35);
+      z-index: 11;
+      opacity: 0;
+      transform: translateY(14px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.28s ease, transform 0.28s ease;
+    }
+
+    .info-box.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .product-thumb {
+      width: 100%;
+      height: 130px;
+      border-radius: 0.75rem;
+      object-fit: cover;
+      border: 1px solid rgba(255,255,255,0.18);
+      margin-bottom: 0.7rem;
+    }
+
+    .info-box h2 {
+      margin: 0 0 0.35rem;
+      font-size: 1.05rem;
+      line-height: 1.3;
+    }
+
+    .info-box p {
+      margin: 0 0 0.9rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .order-btn {
+      width: 100%;
+      border: none;
+      border-radius: 0.7rem;
+      padding: 0.7rem 0.9rem;
+      background: linear-gradient(180deg, #32d273 0%, var(--accent-dark) 100%);
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s ease, filter 0.2s ease;
+      letter-spacing: 0.02em;
+    }
+
+    .order-btn:hover { filter: brightness(1.05); }
+    .order-btn:active { transform: scale(0.98); }
+
+    .hint {
+      position: fixed;
+      left: 1rem;
+      bottom: 1rem;
+      z-index: 9;
+      color: #c5e8d7;
+      font-size: 0.82rem;
+      opacity: 0.85;
+      background: rgba(0,0,0,0.22);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 0.65rem;
+      padding: 0.5rem 0.65rem;
+      max-width: min(86vw, 330px);
+    }
+
+    @media (max-width: 768px) {
+      .info-box {
+        right: 0.75rem;
+        left: 0.75rem;
+        width: auto;
+        bottom: 0.75rem;
+      }
+      .hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div class="topbar">
+    <h1>🌿 Green Energy Mini Shop</h1>
+    <p>Hover or tap a product to view details, then place your order.</p>
+  </div>
+
+  <div id="infoBox" class="info-box">
+    <img id="productThumb" class="product-thumb" alt="Product image" />
+    <h2 id="productName"></h2>
+    <p id="productDesc"></p>
+    <button id="orderBtn" class="order-btn">Order</button>
+  </div>
+
+  <div class="hint">Tip: Drag your mouse over products. On mobile, tap a product.</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+  <script>
+    // --- Product Data ---
+    const products = [
+      {
+        name: "Solar Panel",
+        description: "High-efficiency photovoltaic panel for clean and reliable home energy generation.",
+        image: "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=1200&q=80"
+      },
+      {
+        name: "Wind Turbine",
+        description: "Compact smart turbine designed for low-noise renewable electricity in urban spaces.",
+        image: "https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1200&q=80"
+      },
+      {
+        name: "Electric Car",
+        description: "Zero-emission mobility with advanced battery range and AI-assisted drive features.",
+        image: "https://images.unsplash.com/photo-1617704548623-340376564e68?auto=format&fit=crop&w=1200&q=80"
+      },
+      {
+        name: "Battery System",
+        description: "Modular energy storage unit for home backup and solar power optimization.",
+        image: "https://images.unsplash.com/photo-1593941707882-a56bbc8df5f8?auto=format&fit=crop&w=1200&q=80"
+      },
+      {
+        name: "Smart LED",
+        description: "Ultra-efficient intelligent lighting with adaptive brightness and app-based control.",
+        image: "https://images.unsplash.com/photo-1512428559087-560fa5ceab42?auto=format&fit=crop&w=1200&q=80"
+      }
+    ];
+
+    // --- Scene Setup ---
+    const app = document.getElementById("app");
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x06110d, 12, 28);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(0, 1.8, 11);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    app.appendChild(renderer.domElement);
+
+    // --- Lighting ---
+    const ambient = new THREE.AmbientLight(0x8de5b1, 0.65);
+    scene.add(ambient);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    keyLight.position.set(5, 7, 6);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0x4ade80, 0.8);
+    rimLight.position.set(-6, 3, -4);
+    scene.add(rimLight);
+
+    // Ground glow
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(10, 64),
+      new THREE.MeshBasicMaterial({ color: 0x113524, transparent: true, opacity: 0.35 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -2.1;
+    scene.add(ground);
+
+    // --- Product Cards ---
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.crossOrigin = "anonymous";
+
+    const productMeshes = [];
+    const cardWidth = 2.2;
+    const cardHeight = 1.35;
+    const cardDepth = 0.24;
+    const xGap = 2.8;
+
+    products.forEach((product, i) => {
+      const frontMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2a3e36,
+        roughness: 0.65,
+        metalness: 0.1
+      });
+
+      textureLoader.load(
+        product.image,
+        (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.minFilter = THREE.LinearMipmapLinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          frontMaterial.map = texture;
+          frontMaterial.needsUpdate = true;
+        },
+        undefined,
+        () => {
+          // Texture failed: fallback color remains.
+        }
+      );
+
+      const side = new THREE.MeshStandardMaterial({ color: 0x173329, roughness: 0.85, metalness: 0.15 });
+      const back = new THREE.MeshStandardMaterial({ color: 0x1f4336, roughness: 0.8, metalness: 0.1 });
+
+      const materials = [side, side, side, side, frontMaterial, back];
+      const card = new THREE.Mesh(
+        new THREE.BoxGeometry(cardWidth, cardHeight, cardDepth),
+        materials
+      );
+
+      card.position.set((i - 2) * xGap, (i % 2 ? 0.35 : -0.1), -Math.abs(i - 2) * 0.35);
+      card.rotation.y = (i - 2) * 0.14;
+
+      card.userData = {
+        ...product,
+        baseY: card.position.y,
+        targetScale: 1,
+        speed: 0.008 + i * 0.0015
+      };
+
+      // Simple base under card
+      const stand = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.32, 0.38, 0.2, 26),
+        new THREE.MeshStandardMaterial({ color: 0x22563f, roughness: 0.7, metalness: 0.22 })
+      );
+      stand.position.y = -1.05;
+      card.add(stand);
+
+      scene.add(card);
+      productMeshes.push(card);
+    });
+
+    // --- Interaction ---
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2(100, 100);
+
+    let hoveredMesh = null;
+    let activeProduct = null;
+
+    const infoBox = document.getElementById("infoBox");
+    const productThumb = document.getElementById("productThumb");
+    const productName = document.getElementById("productName");
+    const productDesc = document.getElementById("productDesc");
+    const orderBtn = document.getElementById("orderBtn");
+
+    function showInfo(product) {
+      activeProduct = product;
+      productThumb.src = product.image;
+      productName.textContent = product.name;
+      productDesc.textContent = product.description;
+      infoBox.classList.add("visible");
+    }
+
+    function hideInfo() {
+      infoBox.classList.remove("visible");
+      activeProduct = null;
+    }
+
+    function setPointerFromEvent(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    }
+
+    function handleHover() {
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(productMeshes, false);
+
+      if (intersects.length > 0) {
+        const hit = intersects[0].object;
+        if (hoveredMesh !== hit) hoveredMesh = hit;
+        showInfo(hit.userData);
+      } else {
+        hoveredMesh = null;
+        hideInfo();
+      }
+    }
+
+    renderer.domElement.addEventListener("pointermove", (e) => {
+      setPointerFromEvent(e);
+      handleHover();
+    });
+
+    renderer.domElement.addEventListener("pointerdown", (e) => {
+      setPointerFromEvent(e);
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(productMeshes, false);
+      if (intersects.length > 0) {
+        hoveredMesh = intersects[0].object;
+        showInfo(hoveredMesh.userData);
+      }
+    });
+
+    renderer.domElement.addEventListener("pointerleave", () => {
+      hoveredMesh = null;
+      hideInfo();
+      pointer.set(100, 100);
+    });
+
+    orderBtn.addEventListener("click", () => {
+      if (!activeProduct) return;
+      alert(`✅ Order placed for: ${activeProduct.name}`);
+    });
+
+    // --- Animation Loop ---
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      productMeshes.forEach((mesh, i) => {
+        mesh.rotation.y += mesh.userData.speed;
+        mesh.position.y = mesh.userData.baseY + Math.sin(t * 1.6 + i) * 0.08;
+
+        mesh.userData.targetScale = (mesh === hoveredMesh) ? 1.16 : 1;
+        const s = THREE.MathUtils.lerp(mesh.scale.x, mesh.userData.targetScale, 0.12);
+        mesh.scale.set(s, s, s);
+      });
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // --- Responsive ---
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      if (window.innerWidth < 700) {
+        camera.position.set(0, 1.9, 13.2);
+      } else {
+        camera.position.set(0, 1.8, 11);
+      }
+    }
+    window.addEventListener("resize", onResize);
+    onResize();
+  </script>
+</body>
+</html>
